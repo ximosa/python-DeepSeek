@@ -17,7 +17,7 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()
 
-def dividir_texto(texto, max_tokens=2000):  # Tamaño intermedio
+def dividir_texto(texto, max_tokens=4000):  # Tamaño intermedio
     """Divide el texto en fragmentos más pequeños."""
     tokens = texto.split()
     fragmentos = []
