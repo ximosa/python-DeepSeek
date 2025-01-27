@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import requests
 import concurrent.futures
+import time
 
 st.set_page_config(
     page_title="texto-corto",
@@ -16,7 +17,7 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()
 
-def dividir_texto(texto, max_tokens=3000):  # Fragmentos más grandes
+def dividir_texto(texto, max_tokens=2000):  # Tamaño intermedio
     """Divide el texto en fragmentos más pequeños."""
     tokens = texto.split()
     fragmentos = []
@@ -81,7 +82,7 @@ def procesar_transcripcion(texto):
     fragmentos = dividir_texto(texto)
     texto_limpio_completo = ""
     
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:  # Limitar a 5 solicitudes simultáneas
         futures = {
             executor.submit(limpiar_transcripcion_deepseek, fragmento): fragmento
             for fragmento in fragmentos
@@ -92,6 +93,7 @@ def procesar_transcripcion(texto):
             texto_limpio = future.result()
             if texto_limpio:
                 texto_limpio_completo += texto_limpio + " "
+            time.sleep(1)  # Pequeño retraso entre solicitudes
     
     return texto_limpio_completo.strip()
 
