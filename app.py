@@ -82,6 +82,8 @@ def procesar_transcripcion(texto):
     """Procesa el texto dividiendo en fragmentos y usando DeepSeek en paralelo."""
     fragmentos = dividir_texto(texto)
     texto_limpio_completo = ""
+    total_fragmentos = len(fragmentos)
+    progress_bar = st.progress(0)
 
     with st.spinner("Procesando con DeepSeek..."):
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -90,12 +92,12 @@ def procesar_transcripcion(texto):
                 for fragmento in fragmentos
             }
             
-            total_fragmentos = len(fragmentos)
             for i, future in enumerate(concurrent.futures.as_completed(futures), 1):
                 texto_limpio = future.result()
                 if texto_limpio:
                     texto_limpio_completo += texto_limpio + " "
-                st.write(f"Fragmento {i}/{total_fragmentos} procesado.")
+                progress_bar.progress(i / total_fragmentos)
+
     return texto_limpio_completo.strip()
 
 def descargar_texto(texto_formateado):
