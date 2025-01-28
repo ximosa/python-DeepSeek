@@ -113,13 +113,21 @@ st.title("Limpiador de Transcripciones de YouTube (con DeepSeek)")
 
 transcripcion = st.text_area("Pega aquí tu transcripción sin formato:")
 
-if transcripcion:
-    start_time = perf_counter()
-    texto_limpio = procesar_transcripcion(transcripcion)
-    end_time = perf_counter()
-    
-    if texto_limpio:
-        st.subheader("Transcripción Formateada:")
-        st.write(texto_limpio)
-        descargar_texto(texto_limpio)
+if 'texto_procesado' not in st.session_state:
+    st.session_state['texto_procesado'] = ""
+
+if st.button("Procesar"):
+    if transcripcion:
+        start_time = perf_counter()
+        texto_limpio = procesar_transcripcion(transcripcion)
+        end_time = perf_counter()
+        st.session_state['texto_procesado'] = texto_limpio
         st.success(f"Tiempo de procesamiento: {end_time - start_time:.2f} segundos")
+    else:
+        st.warning("Por favor, introduce el texto a procesar.")
+
+
+if st.session_state['texto_procesado']:
+    st.subheader("Transcripción Formateada:")
+    st.write(st.session_state['texto_procesado'])
+    descargar_texto(st.session_state['texto_procesado'])
