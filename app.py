@@ -17,7 +17,7 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()
 
-def dividir_texto(texto, max_tokens=4000):  # Tamaño intermedio
+def dividir_texto(texto, max_tokens=1500):  # Tamaño intermedio
     """Divide el texto en fragmentos más pequeños."""
     tokens = texto.split()
     fragmentos = []
@@ -45,7 +45,7 @@ def limpiar_transcripcion_deepseek(texto):
     Sigue estas pautas:
     - Reescribe el siguiente texto utilizando tus propias palabras, y asegúrate de mantener una longitud similar al texto original.
     No reduzcas la información, e intenta expandir cada punto si es posible.
-    No me generes un resumen, quiero un texto parafraseado y expandido con una longitud comparable al texto original.
+    Quiero  una longitud comparable al texto original.
     - Dale un titulo preciso y llamativo.
     - Evita mencionar nombres de personajes o del autor.
     - Concentra el resumen en la experiencia general, las ideas principales, los temas y las emociones transmitidas por el texto.
