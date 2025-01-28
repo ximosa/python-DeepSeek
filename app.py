@@ -1,22 +1,24 @@
 import streamlit as st
 import os
-import textwrap
-import requests  # Asumiendo que DeepSeek tiene una API RESTful
+import requests
+import concurrent.futures
+import time
 
+# Configuración de la página
 st.set_page_config(
     page_title="texto-corto",
     layout="wide"
 )
 
-# Obtener la API Key de las variables de entorno
+# Obtener la API Key de DeepSeek
 try:
     DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
-    DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"  # URL de la API de DeepSeek
+    DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
-    st.stop()  # Detener la app si no hay API Key
+    st.stop()
 
-def dividir_texto(texto, max_tokens=4500):
+def dividir_texto(texto, max_tokens=1500):  # Tamaño intermedio
     """Divide el texto en fragmentos más pequeños."""
     tokens = texto.split()
     fragmentos = []
@@ -38,19 +40,13 @@ def dividir_texto(texto, max_tokens=4500):
 def limpiar_transcripcion_deepseek(texto):
     """
     Limpia una transcripción usando DeepSeek.
-
-    Args:
-      texto (str): La transcripción sin formato.
-
-    Returns:
-      str: La transcripción formateada.
     """
     prompt = f"""
        Actúa como un lector profundo y reflexivo usando un tono conversacional y ameno, como si le contaras la historia a un amigo. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
     Sigue estas pautas:
     - Reescribe el siguiente texto utilizando tus propias palabras, y asegúrate de mantener una longitud similar al texto original.
-    - No reduzcas la información, e intenta expandir cada punto si es posible.
-    - Con una longitud comparable al texto original.
+    No reduzcas la información, e intenta expandir cada punto si es posible.
+    Quiero  una longitud comparable al texto original.
     - Dale un titulo preciso y llamativo.
     - Evita mencionar nombres de personajes o del autor.
     - Concentra el resumen en la experiencia general, las ideas principales, los temas y las emociones transmitidas por el texto.
@@ -69,7 +65,7 @@ def limpiar_transcripcion_deepseek(texto):
         "Content-Type": "application/json"
     }
     data = {
-        "model": "deepseek-chat",  # Modelo de DeepSeek
+        "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}]
     }
 
@@ -83,25 +79,28 @@ def limpiar_transcripcion_deepseek(texto):
         return None
 
 def procesar_transcripcion(texto):
-    """Procesa el texto dividiendo en fragmentos y usando DeepSeek."""
+    """Procesa el texto dividiendo en fragmentos y usando DeepSeek en paralelo."""
     fragmentos = dividir_texto(texto)
     texto_limpio_completo = ""
-    for i, fragmento in enumerate(fragmentos):
-        st.write(f"Procesando fragmento {i+1}/{len(fragmentos)}")
-        texto_limpio = limpiar_transcripcion_deepseek(fragmento)
-        if texto_limpio:
-            texto_limpio_completo += texto_limpio + " "  # Agregar espacio para evitar que las frases se unan
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:  # Limitar a 5 solicitudes simultáneas
+        futures = {
+            executor.submit(limpiar_transcripcion_deepseek, fragmento): fragmento
+            for fragmento in fragmentos
+        }
+        
+        for i, future in enumerate(concurrent.futures.as_completed(futures)):
+            st.write(f"Procesando fragmento {i+1}/{len(fragmentos)}")
+            texto_limpio = future.result()
+            if texto_limpio:
+                texto_limpio_completo += texto_limpio + " "
+            time.sleep(1)  # Pequeño retraso entre solicitudes
+    
     return texto_limpio_completo.strip()
 
 def descargar_texto(texto_formateado):
     """
     Genera un enlace de descarga para el texto formateado.
-
-    Args:
-        texto_formateado (str): El texto formateado.
-
-    Returns:
-        streamlit.components.v1.html: Enlace de descarga.
     """
     return st.download_button(
         label="Descargar Texto",
@@ -114,10 +113,14 @@ st.title("Limpiador de Transcripciones de YouTube (con DeepSeek)")
 
 transcripcion = st.text_area("Pega aquí tu transcripción sin formato:")
 
-if transcripcion:
-    with st.spinner("Procesando con DeepSeek..."):
-        texto_limpio = procesar_transcripcion(transcripcion)
-        if texto_limpio:
-            st.subheader("Transcripción Formateada:")
-            st.write(texto_limpio)
-            descargar_texto(texto_limpio)
+# Botón para procesar el texto
+if st.button("Procesar Texto"):
+    if transcripcion:
+        with st.spinner("Procesando con DeepSeek..."):
+            texto_limpio = procesar_transcripcion(transcripcion)
+            if texto_limpio:
+                st.subheader("Transcripción Formateada:")
+                st.write(texto_limpio)
+                descargar_texto(texto_limpio)
+    else:
+        st.warning("Por favor, pega una transcripción para procesar.")
