@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import requests
 import concurrent.futures
-from time import perf_counter
+from time import perf_counter, sleep
 import logging
 from datetime import datetime
 
@@ -50,8 +50,8 @@ def dividir_texto(texto, max_tokens=3000):
         fragmentos.append(" ".join(fragmento_actual))
     return fragmentos
 
-def limpiar_transcripcion_deepseek(texto):
-    """Limpia una transcripción usando DeepSeek."""
+def limpiar_transcripcion_deepseek(texto, max_retries=3, initial_delay=1):
+    """Limpia una transcripción usando DeepSeek con reintentos."""
     prompt = f"""
         Actúa como un lector profundo y reflexivo usando un tono conversacional y ameno, como si le contaras la historia a un amigo. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
 
@@ -82,19 +82,29 @@ def limpiar_transcripcion_deepseek(texto):
         "messages": [{"role": "user", "content": prompt}]
     }
     
-    try:
-        logging.info(f"Enviando solicitud a DeepSeek para texto: {texto[:50]}...")
-        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        logging.info(f"Respuesta recibida de DeepSeek para texto: {texto[:50]}")
-        return result['choices'][0]['message']['content']
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error en la solicitud a DeepSeek: {e}")
-        return None
-    except Exception as e:
-        logging.error(f"Error al procesar la respuesta de DeepSeek: {e}")
-        return None
+    retries = 0
+    delay = initial_delay
+    while retries <= max_retries:
+        try:
+            logging.info(f"Enviando solicitud a DeepSeek para texto: {texto[:50]}... (Intento {retries + 1})")
+            response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            logging.info(f"Respuesta recibida de DeepSeek para texto: {texto[:50]}")
+            return result['choices'][0]['message']['content']
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error en la solicitud a DeepSeek: {e} (Intento {retries + 1})")
+            if e.response and e.response.status_code == 429:
+              retries += 1
+              sleep(delay)
+              delay *= 2 # Delay exponencial
+            else:
+              return None
+        except Exception as e:
+            logging.error(f"Error al procesar la respuesta de DeepSeek: {e}")
+            return None
+    logging.error(f"Máximo número de reintentos alcanzado para el texto: {texto[:50]}.")
+    return None
 
 def procesar_transcripcion(texto):
     """Procesa el texto dividiendo en fragmentos y usando DeepSeek en paralelo."""
