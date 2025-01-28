@@ -3,10 +3,23 @@ import os
 import requests
 import concurrent.futures
 from time import perf_counter
+import logging
+from datetime import datetime
 
 st.set_page_config(
     page_title="Texto Corto",
     layout="wide"
+)
+
+# Configuración de Logging
+LOG_FILE = 'app.log'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
 
 # Obtener la API Key de DeepSeek
@@ -68,14 +81,19 @@ def limpiar_transcripcion_deepseek(texto):
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}]
     }
-
+    
     try:
+        logging.info(f"Enviando solicitud a DeepSeek para texto: {texto[:50]}...")
         response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
         response.raise_for_status()
         result = response.json()
+        logging.info(f"Respuesta recibida de DeepSeek para texto: {texto[:50]}")
         return result['choices'][0]['message']['content']
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error en la solicitud a DeepSeek: {e}")
+        return None
     except Exception as e:
-        st.error(f"Error al procesar con DeepSeek: {e}")
+        logging.error(f"Error al procesar la respuesta de DeepSeek: {e}")
         return None
 
 def procesar_transcripcion(texto):
@@ -109,6 +127,16 @@ def descargar_texto(texto_formateado):
         mime="text/plain"
     )
 
+def mostrar_logs():
+    """Muestra los logs en Streamlit."""
+    try:
+      with open(LOG_FILE, 'r', encoding='utf-8') as f:
+          log_content = f.read()
+          st.subheader("Logs de la Aplicación:")
+          st.text_area("Logs", value=log_content, height=300)
+    except FileNotFoundError:
+      st.error("El archivo de logs no fue encontrado.")
+
 st.title("Limpiador de Transcripciones de YouTube (con DeepSeek)")
 
 transcripcion = st.text_area("Pega aquí tu transcripción sin formato:")
@@ -126,8 +154,10 @@ if st.button("Procesar"):
     else:
         st.warning("Por favor, introduce el texto a procesar.")
 
-
 if st.session_state['texto_procesado']:
     st.subheader("Transcripción Formateada:")
     st.write(st.session_state['texto_procesado'])
     descargar_texto(st.session_state['texto_procesado'])
+
+if st.checkbox("Mostrar Logs"):
+  mostrar_logs()
