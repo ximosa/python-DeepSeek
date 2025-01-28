@@ -16,7 +16,7 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()  # Detener la app si no hay API Key
 
-def dividir_texto(texto, max_tokens=1500):
+def dividir_texto(texto, max_tokens=4500):
     """Divide el texto en fragmentos más pequeños."""
     tokens = texto.split()
     fragmentos = []
@@ -49,8 +49,8 @@ def limpiar_transcripcion_deepseek(texto):
        Actúa como un lector profundo y reflexivo usando un tono conversacional y ameno, como si le contaras la historia a un amigo. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
     Sigue estas pautas:
     - Reescribe el siguiente texto utilizando tus propias palabras, y asegúrate de mantener una longitud similar al texto original.
-    No reduzcas la información, e intenta expandir cada punto si es posible.
-    No me generes un resumen, quiero un texto parafraseado y expandido con una longitud comparable al texto original.
+    - No reduzcas la información, e intenta expandir cada punto si es posible.
+    - Con una longitud comparable al texto original.
     - Dale un titulo preciso y llamativo.
     - Evita mencionar nombres de personajes o del autor.
     - Concentra el resumen en la experiencia general, las ideas principales, los temas y las emociones transmitidas por el texto.
