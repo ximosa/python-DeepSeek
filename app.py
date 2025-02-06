@@ -5,6 +5,7 @@ import concurrent.futures
 from time import perf_counter, sleep
 import logging
 from datetime import datetime
+import tiktoken  # Importa tiktoken
 
 st.set_page_config(
     page_title="Texto Corto",
@@ -30,24 +31,50 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()
 
-def dividir_texto(texto, max_tokens=4000):
-    """Divide el texto en fragmentos más pequeños de manera inteligente."""
-    tokens = texto.split()
+# Inicializa el tokenizador (¡IMPORTANTE!)
+try:
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")  # O el modelo que uses
+except Exception as e:
+    st.error(f"Error al cargar el tokenizador: {e}. Asegúrate de tener tiktoken instalado (`pip install tiktoken`).")
+    st.stop()
+
+def contar_tokens(texto):
+    """Cuenta tokens usando tiktoken."""
+    return len(encoding.encode(texto))
+
+def dividir_texto_dinamico(texto, tamano_fragmento_pequeno=750, tamano_fragmento_mediano=1500):
+    """Divide el texto en fragmentos más pequeños dinámicamente."""
+    longitud_texto = contar_tokens(texto)
+
+    if longitud_texto < 1000:
+        return [texto]  # No dividir si es muy corto
+    elif longitud_texto < 5000:
+        max_tokens = tamano_fragmento_mediano
+        st.info(f"Dividiendo en fragmentos medianos (max {max_tokens} tokens).")
+    else:
+        max_tokens = tamano_fragmento_pequeno
+        st.info(f"Dividiendo en fragmentos pequeños (max {max_tokens} tokens).")
+
     fragmentos = []
     fragmento_actual = []
-    cuenta_tokens = 0
-    
-    for token in tokens:
-      if cuenta_tokens + len(token.split()) <= max_tokens:
-        fragmento_actual.append(token)
-        cuenta_tokens += len(token.split())
-      else:
-         fragmentos.append(" ".join(fragmento_actual))
-         fragmento_actual = [token]
-         cuenta_tokens = len(token.split())
+    cuenta_tokens_actual = 0
+
+    palabras = texto.split()  # Dividir por palabras para mejor control
+    for palabra in palabras:
+        tokens_palabra = contar_tokens(palabra)  # Tokenizar cada palabra
+
+        if cuenta_tokens_actual + tokens_palabra <= max_tokens:
+            fragmento_actual.append(palabra)
+            cuenta_tokens_actual += tokens_palabra
+        else:
+            fragmentos.append(" ".join(fragmento_actual))
+            fragmento_actual = [palabra]
+            cuenta_tokens_actual = tokens_palabra
 
     if fragmento_actual:
         fragmentos.append(" ".join(fragmento_actual))
+
+    st.info(f"Texto dividido en {len(fragmentos)} fragmentos.")
     return fragmentos
 
 def limpiar_transcripcion_deepseek(texto, max_retries=3, initial_delay=1):
@@ -57,11 +84,11 @@ def limpiar_transcripcion_deepseek(texto, max_retries=3, initial_delay=1):
         como si le contaras la historia a tus lectores. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
 
         Sigue estas pautas:
-        - El texto resultante debe tener al menos el 80% de la longitud del texto original, y preferiblemente entre el 100% 
-        y el 120%." O "Intenta expandir cada idea principal con 2-3 frases adicionales que ofrezcan ejemplos, 
-        explicaciones o reflexiones personales..
-        No reduzcas la información, e intenta expandir cada punto si es posible.
-        No me generes un resumen, quiero un texto parafraseado y expandido con una longitud comparable al texto original.
+        - El texto resultante debe tener al menos el 90% de la longitud del texto original, y preferiblemente entre el 100% 
+        y el 120% (en número de tokens). Intenta expandir cada idea principal con 2-3 frases adicionales que ofrezcan ejemplos, 
+        explicaciones o reflexiones personales. Si el texto original parece incompleto o le falta algo, añade detalles relevantes.
+        - No reduzcas la información, e intenta expandir cada punto si es posible.
+        - No me generes un resumen, quiero un texto parafraseado y expandido con una longitud comparable al texto original.
         - Dale un título preciso y llamativo.
         - Evita mencionar nombres de personajes o del autor.
         - Concentra el resumen en la experiencia general, las ideas principales, los temas y las emociones transmitidas por el texto.
@@ -111,7 +138,7 @@ def limpiar_transcripcion_deepseek(texto, max_retries=3, initial_delay=1):
 
 def procesar_transcripcion(texto):
     """Procesa el texto dividiendo en fragmentos y usando DeepSeek en paralelo."""
-    fragmentos = dividir_texto(texto)
+    fragmentos = dividir_texto_dinamico(texto)
     texto_limpio_completo = ""
     total_fragmentos = len(fragmentos)
     progress_bar = st.progress(0)
@@ -159,11 +186,21 @@ if 'texto_procesado' not in st.session_state:
 
 if st.button("Procesar"):
     if transcripcion:
+        # Antes de procesar, muestra la longitud del texto original
+        longitud_original = contar_tokens(transcripcion)
+        st.info(f"Longitud del texto original: {longitud_original} tokens.")
+
         start_time = perf_counter()
         texto_limpio = procesar_transcripcion(transcripcion)
         end_time = perf_counter()
+
         st.session_state['texto_procesado'] = texto_limpio
         st.success(f"Tiempo de procesamiento: {end_time - start_time:.2f} segundos")
+
+        # Después de procesar, muestra la longitud del texto resultante
+        longitud_resultante = contar_tokens(texto_limpio)
+        st.info(f"Longitud del texto resultante: {longitud_resultante} tokens.")
+
     else:
         st.warning("Por favor, introduce el texto a procesar.")
 
