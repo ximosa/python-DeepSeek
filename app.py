@@ -30,7 +30,7 @@ except KeyError:
     st.error("La variable de entorno DEEPSEEK_API_KEY no está configurada.")
     st.stop()
 
-def dividir_texto(texto, max_tokens=1000):
+def dividir_texto(texto, max_tokens=4000):
     """Divide el texto en fragmentos más pequeños de manera inteligente."""
     tokens = texto.split()
     fragmentos = []
@@ -53,10 +53,13 @@ def dividir_texto(texto, max_tokens=1000):
 def limpiar_transcripcion_deepseek(texto, max_retries=3, initial_delay=1):
     """Limpia una transcripción usando DeepSeek con reintentos."""
     prompt = f"""
-        Actúa como un lector profundo y reflexivo usando un tono conversacional y ameno, como si le contaras la historia a un amigo. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
+        Actúa como un escritor usando un tono conversacional y ameno,
+        como si le contaras la historia a tus lectores. Escribe en primera persona, como si tú hubieras vivido la experiencia o reflexionado sobre los temas presentados.
 
         Sigue estas pautas:
-        - Reescribe el siguiente texto utilizando tus propias palabras, y asegúrate de mantener una longitud similar al texto original.
+        - El texto resultante debe tener al menos el 80% de la longitud del texto original, y preferiblemente entre el 100% 
+        y el 120%." O "Intenta expandir cada idea principal con 2-3 frases adicionales que ofrezcan ejemplos, 
+        explicaciones o reflexiones personales..
         No reduzcas la información, e intenta expandir cada punto si es posible.
         No me generes un resumen, quiero un texto parafraseado y expandido con una longitud comparable al texto original.
         - Dale un título preciso y llamativo.
